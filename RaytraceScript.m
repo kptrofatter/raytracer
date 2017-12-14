@@ -23,7 +23,8 @@ lambda0 = 2.0 * pi / k0; % [m] wavelength
 
 tx = [5.5; 3.0]; % [m] tx position
 
-rx = [1.0; 0.0]; % [m] rx position
+%rx =  [4.0; 1.6]; % [m] rx position
+rx = [0.0; 0.0];
 
 geometry.verts = [ ... % [m] scene vertices
     0.0, 3.5, 3.5, 5.5, 5.5, 0.5, 0.5, 0.0; ...
