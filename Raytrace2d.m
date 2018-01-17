@@ -158,7 +158,7 @@ function [traces] = TraceTx(rx, tx, geometry, imirror, visibility)
             
             % test visibility through mask
             t = LineLineIntersect(mirror_x0, mirror_u, x0(:, i), u(:, i));
-            n = [mirror_u(2); mirror_u(1)];
+            n = [mirror_u(2); -mirror_u(1)];
             is_visible = (0.0 <= t(1)) && (t(1) <= mirror_d) ...
                 && IntervalElementOf(visibility, t(1)) ...
                 && dot(n, tx(:, i) - mirror_x0) * dot(n, rx - mirror_x0) < 0.0;
