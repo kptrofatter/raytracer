@@ -18,7 +18,9 @@
 %   [1,1] char    | debug     | debug plot {'solid', 'bounce', 'distance'}
 %
 % OUTPUT:
-%   [1,n] cell    | traces    | [m] ray traces ([2,?] double [rx, ... ,tx])
+%   [1,n] struct  | traces    | ray trace structures
+%   [1,1] double  | .source   | tx source index
+%   [2,?] double  | .verts    | [m] ray vertices ([tx, ... ,rx])
 %
 % NOTES:
 %   + currently only supports edge geometry
@@ -49,9 +51,9 @@ function [traces] = Raytrace2d(rx, tx, geometry, depth, debug)
     % recursively trace
     traces = TraceInto(rx, tx, geometry, [], [], depth);
     
-    % set root of all traces to rx
+    % append rx to all traces
     for i = 1 : numel(traces)
-        traces{i} = [rx, traces{i}];
+        traces(i).verts = [traces(i).verts, rx];
     end
     
     % plot traces
@@ -91,8 +93,8 @@ function [traces] = TraceInto(rx, tx, geometry, imirror, visibility, depth)
     [traces, itrace] = Traces();
     
     % trace terminal tx
-    t = TraceTx(rx, tx, geometry, imirror, visibility);
-    [traces, itrace] = TracesSet(traces, itrace, t);
+    trace = TraceTx(rx, tx, geometry, imirror, visibility);
+    [traces, itrace] = TracesSet(traces, itrace, trace);
     
     % recursively trace geometry
     if depth > 0
@@ -103,8 +105,8 @@ function [traces] = TraceInto(rx, tx, geometry, imirror, visibility, depth)
         % trace visible edges
         for i = 1 : numel(intervals)
             if ~isempty(intervals{i})
-                t = TraceEdge(rx, tx, geometry, i, intervals{i}, depth);
-                [traces, itrace] = TracesSet(traces, itrace, t);
+                trace = TraceEdge(rx, tx, geometry, i, intervals{i}, depth);
+                [traces, itrace] = TracesSet(traces, itrace, trace);
             end
         end
         
@@ -112,7 +114,7 @@ function [traces] = TraceInto(rx, tx, geometry, imirror, visibility, depth)
         
     end
     
-    % prune unused traces
+    % prune unused rays
     traces(itrace : end) = [];
     
 end
@@ -216,7 +218,8 @@ function [traces] = TraceTx(rx, tx, geometry, imirror, visibility)
         
         % set trace
         if is_visible
-            [traces, itrace] = TracesSet(traces, itrace, {tx(:, i)});
+            trace = struct('source', i, 'verts', tx(:, i));
+            [traces, itrace] = TracesSet(traces, itrace, trace);
         end
         
     end
@@ -238,18 +241,18 @@ function [traces] = TraceEdge(point, tx, geometry, imirror, visibility, depth)
     % recursively trace tx
     traces = TraceInto(image, tx, geometry, imirror, visibility, depth - 1);
     
-    % push reflect point to traces
+    % append reflect point to traces
     for i = 1 : numel(traces)
         
         % compute reflect point
-        x0 = traces{i}(:, 1);
+        x0 = traces(i).verts(:, end);
         u = image - x0;
         u = u / norm(u);
         t = LineLineIntersect(x0, u, x0_mirror, u_mirror);
         reflect = x0 + u * t(1);
         
-        % push
-        traces{i} = [reflect, traces{i}];
+        % append
+        traces(i).verts = [traces(i).verts, reflect];
         
     end
     
@@ -257,7 +260,7 @@ end
 
 
 function [traces, itrace] = Traces()
-    traces = {};
+    traces = struct('source', 0, 'verts', zeros(2, 0));
     itrace = 1;
 end
 
@@ -272,11 +275,15 @@ function [traces, itrace] = TracesSet(traces, itrace, t)
     
     % allocate
     if itrace + n > numel(traces)
-        traces = [traces, cell(1, max(n, guess))];
+        i = max(n, guess);
+        traces(i) = struct('source', 0, 'verts', zeros(2, 0));
     end
     
     % set
-    traces(itrace + (0 : n - 1)) = t;
+    for i = 1 : n
+        traces(itrace + i - 1).source = t(i).source;
+        traces(itrace + i - 1).verts = t(i).verts;
+    end
     itrace = itrace + n;
     
 end
@@ -738,46 +745,47 @@ function [] = DebugPlotTraces(ah, traces, depth, debug)
     % traces
     ntraces = numel(traces);
     for i = 1 : ntraces
+        verts = traces(i).verts;
         switch debug
         case 'solid'
             % solid colored lines
-            line('XData', traces{i}(1, :), 'YData', traces{i}(2, :), ...
-                'Color', 'g', 'Parent', ah);
+            line('XData', verts(1, :), 'YData', verts(2, :), 'Color', 'g', ...
+                'Parent', ah);
         
         case 'bounce'
             % colormap
-            colormap(flip(parula(depth + 1)));
+            colormap(ah, flip(parula(depth + 1)));
             ch = colorbar(ah, 'Color', 'w');
             title(ch, 'ray[#]', 'Color', 'w');
-            caxis([1, depth + 1]);
-            trace = traces{i};
+            caxis(ah, [1, depth + 1]);
             % kludge to draw colored lines
-            x = trace(1, :);
-            y = trace(2, :);
+            x = verts(1, :);
+            y = verts(2, :);
             z = zeros(size(x));
-            c = flip((1 : size(trace, 2)) - 1, 2);
+            c = (1 : numel(x)) - 1;
             surface([x; x], [y; y], [z; z], [c; c],...
                 'FaceColor', 'no',...
                 'EdgeColor', 'flat',...
-                'LineWidth', 1.0);
+                'LineWidth', 1.0,...
+                'Parent', ah);
         
         case 'distance'
             % colormap
-            colormap(flip(parula()));
+            colormap(ah, flip(parula()));
             ch = colorbar(ah, 'Color', 'w');
             title(ch, 'ray[m]', 'Color', 'w');
-            trace = traces{i};
             % kludge to draw colored lines
-            x = trace(1, :);
-            y = trace(2, :);
+            x = verts(1, :);
+            y = verts(2, :);
             z = zeros(size(x));
-            c = trace(:, 1 : end - 1) - trace(:, 2 : end);
+            c = verts(:, 1 : end - 1) - verts(:, 2 : end);
             c = sqrt(sum(c .^ 2));
-            c = [cumsum(c, 'reverse'), 0.0]; % yum
+            c = [0.0, cumsum(c)]; % yum
             surface([x; x], [y; y], [z; z], [c; c],...
                 'FaceColor', 'no',...
                 'EdgeColor', 'interp',...
-                'LineWidth', 1.0);
+                'LineWidth', 1.0,...
+                'Parent', ah);
             
         end
         

@@ -30,10 +30,10 @@ G_tx = 1.0 * exp(1.0j * 2.0 * pi * zeros(1, 32)); % [#] tx complex gain
 G_rx = 1.0 * exp(1.0j * 2.0 * pi * zeros(1, 32)); % [#] tx complex gain
 
 % experiment
-switch 'waveguide'
+switch 'dreza'
 case 'dreza'
     rx = [1.0; 0.1]; % [m] rx position
-    tx = [5.4; 3.0]; % [m] tx position
+    tx = [5.4, 2.0; 3.0, 1.0]; % [m] tx position
     verts_scene = [ ... % [m] scene vertices
         0.0, 3.5, 3.5, 5.5, 5.5, 0.5, 0.5, 0.0; ...
         0.0, 0.0, 2.0, 0.0, 4.0, 4.0, 3.5, 3.5];
@@ -91,10 +91,8 @@ case 'retro'
     depth = 2; % [#] max recursion depth
 
 end
-    verts_object = zeros(2, 0); % [m] object vertices
-    edges_object = zeros(2, 0); % [m] object edges
 % debug ray trace plot
-debug = 'distance'; % debug plot flag
+debug = 'distance'; % debug plot flag {'solid', 'bounce', 'distance'}
 
 % timeline
 nframes = 100; % [#]
@@ -116,12 +114,12 @@ for i = 1 : numel(T)
     fprintf('[%i/%i] Frame\n', i, numel(T));
     
     % animate object
-    S = 0.05 * [1.0, 0.0; 0.0, 1.0];
+    S = 0.2 * [1.0, 0.0; 0.0, 1.0];
     theta = 2.0 * pi * (T(i) - t0) / dt / 2;
     R = [cos(theta), -sin(theta); sin(theta), cos(theta)];
     A.M = R * S;
-    %A.v = [4.5; 1.5]; % dreza
-    A.v = [0.5; 0.0]; % waveguide
+    A.v = [4.5; 1.5]; % dreza
+    %A.v = [0.5; 0.0]; % waveguide
     obj = AffineXform(A, verts_object);
     
     % assemble geometry
@@ -140,13 +138,13 @@ for i = 1 : numel(T)
     for j = 1 : ntraces
         
         % get trace
-        trace = traces{j};
+        verts = traces(j).verts;
         
         % tx exit angle
-        dx = trace(:, end - 1) - trace(:, end);
+        dx = verts(:, end - 1) - verts(:, end);
         theta_tx(j) = atan2(dx(2), dx(1));
         % rx entrance angle
-        dx = trace(:, 1) - trace(:, 2);
+        dx = verts(:, 1) - verts(:, 2);
         theta_rx(j) = atan2(dx(2), dx(1));
         
     end
@@ -164,20 +162,20 @@ for i = 1 : numel(T)
     for j = 1 : ntraces
         
         % get trace
-        trace = traces{j};
+        verts = traces(j).verts;
         
         % compute distance
         d = 0.0;
-        for k = 1 : size(trace, 2) - 1
-            d = d + norm(trace(:, k) - trace(:, k + 1));
+        for k = 1 : size(verts, 2) - 1
+            d = d + norm(verts(:, k) - verts(:, k + 1));
         end
         
         % bin angle at tx
-        dx = trace(:, end - 1) - trace(:, end);
+        dx = verts(:, end - 1) - verts(:, end);
         a = atan2(dx(2), dx(1));
         ibin_tx = (edges_tx(1 : end - 1) <= a) & (a <= edges_tx(2 : end));
         % bin angle at rx
-        dx = trace(:, 1) - trace(:, 2);
+        dx = verts(:, 1) - verts(:, 2);
         a = atan2(dx(2), dx(1));
         ibin_rx = (edges_rx(1 : end - 1) <= a) & (a <= edges_rx(2 : end));
         
