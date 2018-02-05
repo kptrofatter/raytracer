@@ -141,10 +141,10 @@ for i = 1 : numel(T)
         verts = traces(j).verts;
         
         % tx exit angle
-        dx = verts(:, end - 1) - verts(:, end);
+        dx = verts(:, 2) - verts(:, 1);
         theta_tx(j) = atan2(dx(2), dx(1));
         % rx entrance angle
-        dx = verts(:, 1) - verts(:, 2);
+        dx = verts(:, end) - verts(:, end - 1);
         theta_rx(j) = atan2(dx(2), dx(1));
         
     end
@@ -171,11 +171,11 @@ for i = 1 : numel(T)
         end
         
         % bin angle at tx
-        dx = verts(:, end - 1) - verts(:, end);
+        dx = verts(:, 2) - verts(:, 1);
         a = atan2(dx(2), dx(1));
         ibin_tx = (edges_tx(1 : end - 1) <= a) & (a <= edges_tx(2 : end));
         % bin angle at rx
-        dx = verts(:, 1) - verts(:, 2);
+        dx = verts(:, end) - verts(:, end - 1);
         a = atan2(dx(2), dx(1));
         ibin_rx = (edges_rx(1 : end - 1) <= a) & (a <= edges_rx(2 : end));
         
